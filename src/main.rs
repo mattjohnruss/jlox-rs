@@ -1,5 +1,4 @@
 use anyhow::{Context, Result};
-use std::process::exit;
 
 use std::io;
 use std::io::prelude::*;
@@ -20,54 +19,78 @@ impl Scanner {
 #[derive(Debug)]
 struct Token;
 
-fn run(code: &str) {
-    let scanner = Scanner::new(&code);
-    let tokens = scanner.scan();
+struct Lox {
+    had_error: bool,
+}
 
-    for token in tokens {
-        println!("{:?}", token);
+impl Lox {
+    fn new() -> Self {
+        Self { had_error: false }
     }
-}
 
-fn run_file(filename: &str) -> Result<()> {
-    let code = std::fs::read_to_string(filename).context("Could read code from file")?;
-    run(&code);
+    fn run(&mut self, code: &str) {
+        let scanner = Scanner::new(&code);
+        let tokens = scanner.scan();
 
-    Ok(())
-}
-
-fn run_prompt() -> Result<()> {
-    let mut line = String::new();
-    let input = io::stdin();
-
-    loop {
-        print!("> ");
-        // annoying but apparently we have to manually flush stdout to get the prompt to reliably
-        // appear here
-        io::stdout().flush()?;
-
-        input.read_line(&mut line)?;
-
-        if line.len() == 0 {
-            break;
+        for token in tokens {
+            println!("{:?}", token);
         }
-        run(&line);
-        line.clear();
     }
 
-    Ok(())
+    fn run_file(&mut self, filename: &str) -> Result<()> {
+        let code = std::fs::read_to_string(filename).context("Could read code from file")?;
+        self.run(&code);
+
+        if self.had_error {
+            std::process::exit(65);
+        }
+
+        Ok(())
+    }
+
+    fn run_prompt(&mut self) -> Result<()> {
+        let mut line = String::new();
+        let input = io::stdin();
+
+        loop {
+            print!("> ");
+            // annoying but apparently we have to manually flush stdout to get the prompt to reliably
+            // appear here
+            io::stdout().flush()?;
+
+            input.read_line(&mut line)?;
+
+            if line.len() == 0 {
+                break;
+            }
+
+            self.run(&line);
+            self.had_error = false;
+
+            line.clear();
+        }
+
+        Ok(())
+    }
+
+    fn report(&mut self, line: usize, loc: &str, msg: &str) {
+        println!("[line {}] Error{}: {}", line, loc, msg);
+        self.had_error = true;
+    }
 }
 
 fn main() -> Result<()> {
+    let mut lox = Lox::new();
+
     let args: Vec<_> = std::env::args().collect();
 
     match args.len() {
-        2 => run_file(&args[1])?,
+        2 => lox.run_file(&args[1])?,
         n if n > 2 => {
             eprintln!("Usage: {} [script]", args[0]);
-            exit(64);
+            std::process::exit(64);
         }
-        _ => run_prompt()?,
+        _ => lox.run_prompt()?,
     }
 
     Ok(())
