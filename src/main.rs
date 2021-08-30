@@ -38,7 +38,7 @@ impl Lox {
     }
 
     fn run_file(&mut self, filename: &str) -> Result<()> {
-        let code = std::fs::read_to_string(filename).context("Could read code from file")?;
+        let code = std::fs::read_to_string(filename).context("Could not read code from file")?;
         self.run(&code);
 
         if self.had_error {
