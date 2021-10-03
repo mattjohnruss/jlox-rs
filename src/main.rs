@@ -1,23 +1,113 @@
+#![allow(unused)]
+
 use anyhow::{Context, Result};
 
+use std::any::Any;
 use std::io;
 use std::io::prelude::*;
 
 #[derive(Debug)]
-struct Scanner;
+enum TokenKind {
+    // Single-character tokens
+    LeftParen,
+    RightParen,
+    LeftBrace,
+    RightBrace,
+    Comma,
+    Dot,
+    Minus,
+    Plus,
+    Semicolon,
+    Slash,
+    Star,
+    // One or two character tokens
+    Bang,
+    BangEqual,
+    Equal,
+    EqualEqual,
+    Greater,
+    GreaterEqual,
+    Less,
+    LessEqual,
+    // Literals
+    Identifier,
+    String,
+    Number,
+    // Keywords
+    And,
+    Class,
+    Else,
+    False,
+    Fun,
+    For,
+    If,
+    Nil,
+    Or,
+    Print,
+    Return,
+    Super,
+    This,
+    True,
+    Var,
+    While,
+    Eof,
+}
 
-impl Scanner {
-    fn new(_code: &str) -> Self {
-        Self
+#[derive(Debug)]
+struct Scanner<'source> {
+    source: &'source str,
+    //tokens: Vec<Token>,
+}
+
+impl<'source> Scanner<'source> {
+    fn new(source: &'source str) -> Self {
+        Self {
+            source,
+            //tokens: vec![],
+        }
     }
 
     fn scan(&self) -> Vec<Token> {
-        vec![]
+        let tokens = vec![];
+
+        let mut char_iter = self.source.chars().peekable();
+
+        while let Some(c) = char_iter.next() {
+            match char_iter.peek() {
+                Some(c_next) => {
+                    println!("{}, {}", c, c_next);
+                }
+                None => println!("{}", c),
+            }
+        }
+
+        tokens
     }
 }
 
 #[derive(Debug)]
-struct Token;
+struct Token {
+    kind: TokenKind,
+    lexeme: String,
+    literal: Box<dyn Any>,
+    line: usize,
+}
+
+impl Token {
+    fn new(kind: TokenKind, lexeme: impl AsRef<str>, literal: Box<dyn Any>, line: usize) -> Self {
+        Self {
+            kind,
+            lexeme: lexeme.as_ref().to_owned(),
+            literal,
+            line,
+        }
+    }
+
+    fn to_string(&self) -> String {
+        // formatting of the literal: Any probably needs to be changed to something useful
+        format!("{:?} {} {:?}", self.kind, self.lexeme, self.literal)
+    }
+}
 
 struct Lox {
     had_error: bool,
@@ -29,7 +119,7 @@ impl Lox {
     }
 
     fn run(&mut self, code: &str) {
-        let scanner = Scanner::new(&code);
+        let scanner = Scanner::new(code);
         let tokens = scanner.scan();
 
         for token in tokens {
