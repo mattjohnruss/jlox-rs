@@ -2,9 +2,15 @@
 
 use anyhow::{Context, Result};
 
-use std::any::Any;
 use std::io;
 use std::io::prelude::*;
+
+#[derive(Debug)]
+enum Literal {
+    Identifier,
+    String,
+    Number,
+}
 
 #[derive(Debug)]
 enum TokenKind {
@@ -30,9 +36,7 @@ enum TokenKind {
     Less,
     LessEqual,
     // Literals
-    Identifier,
-    String,
-    Number,
+    Literal(Literal),
     // Keywords
     And,
     Class,
@@ -53,35 +57,126 @@ enum TokenKind {
     Eof,
 }
 
+// TODO: this is awful - replace with proper error handling
+static mut HAD_ERROR: bool = false;
+
 #[derive(Debug)]
 struct Scanner<'source> {
     source: &'source str,
-    //tokens: Vec<Token>,
+    tokens: Vec<Token>,
+    line: usize,
+    lexeme: String,
 }
 
 impl<'source> Scanner<'source> {
     fn new(source: &'source str) -> Self {
         Self {
             source,
-            //tokens: vec![],
+            tokens: vec![],
+            line: 1,
+            lexeme: String::new(),
         }
     }
 
-    fn scan(&self) -> Vec<Token> {
-        let tokens = vec![];
-
+    fn scan<'scanner>(&'scanner mut self) -> &'scanner [Token] {
         let mut char_iter = self.source.chars().peekable();
 
+        use TokenKind::*;
+
         while let Some(c) = char_iter.next() {
-            match char_iter.peek() {
-                Some(c_next) => {
-                    println!("{}, {}", c, c_next);
+            self.lexeme.push(c);
+
+            let p = char_iter.peek();
+
+            match c {
+                '(' => self.add_token(LeftParen),
+                ')' => self.add_token(RightParen),
+                '{' => self.add_token(LeftBrace),
+                '}' => self.add_token(RightBrace),
+                ',' => self.add_token(Comma),
+                '.' => self.add_token(Dot),
+                '-' => self.add_token(Minus),
+                '+' => self.add_token(Plus),
+                ';' => self.add_token(Semicolon),
+                '*' => self.add_token(Star),
+                '!' => {
+                    if let Some(&c_next @ '=') = p {
+                        self.lexeme.push(c_next);
+                        self.add_token(BangEqual);
+                        char_iter.next();
+                    } else {
+                        self.add_token(Bang)
+                    }
                 }
-                None => println!("{}", c),
+                '=' => {
+                    if let Some(&c_next @ '=') = p {
+                        self.lexeme.push(c_next);
+                        self.add_token(EqualEqual);
+                        char_iter.next();
+                    } else {
+                        self.add_token(Equal)
+                    }
+                }
+                '<' => {
+                    if let Some(&c_next @ '=') = p {
+                        self.lexeme.push(c_next);
+                        self.add_token(LessEqual);
+                        char_iter.next();
+                    } else {
+                        self.add_token(Less)
+                    }
+                }
+                '>' => {
+                    if let Some(&c_next @ '=') = p {
+                        self.lexeme.push(c_next);
+                        self.add_token(GreaterEqual);
+                        char_iter.next();
+                    } else {
+                        self.add_token(Greater)
+                    }
+                }
+                '/' => {
+                    if let Some('/') = p {
+                        // Don't skip over the second slash - let loop below start at the second
+                        // second slash so (which we know exists at this point) so we can peek to
+                        // the next character.
+
+                        // The rest of the line is a comment so now skip to the end
+                        while let Some(c_comment) = char_iter.next() {
+                            dbg!(c_comment);
+                            if let Some('\n') = char_iter.peek() {
+                                break;
+                            }
+                        }
+
+                        // We have to clear the lexeme string here manually because the double
+                        // slash isn't treated as a token, but we've already added the first slash
+                        // to the string. Would it be better to treat it as a token and simply
+                        // ignore it later?
+                        self.lexeme.clear();
+                    } else {
+                        self.add_token(Slash);
+                    }
+                }
+                ' ' | '\r' | '\t' => {}
+                '\n' => {
+                    self.line += 1;
+                    self.lexeme.clear();
+                }
+                _ => Lox::report(self.line, "", &format!("unexpected character `{c}`")),
             }
         }
 
-        tokens
+        self.tokens
+            .push(Token::new(TokenKind::Eof, "", None, self.line));
+
+        &self.tokens
+    }
+
+    fn add_token(&mut self, kind: TokenKind) {
+        self.tokens
+            .push(Token::new(kind, &self.lexeme, None, self.line));
+        self.lexeme.clear();
     }
 }
 
@@ -89,12 +184,17 @@ impl<'source> Scanner<'source> {
 struct Token {
     kind: TokenKind,
     lexeme: String,
-    literal: Box<dyn Any>,
+    literal: Option<Literal>,
     line: usize,
 }
 
 impl Token {
-    fn new(kind: TokenKind, lexeme: impl AsRef<str>, literal: Box<dyn Any>, line: usize) -> Self {
+    fn new(
+        kind: TokenKind,
+        lexeme: impl AsRef<str>,
+        literal: Option<Literal>,
+        line: usize,
+    ) -> Self {
         Self {
             kind,
             lexeme: lexeme.as_ref().to_owned(),
@@ -104,22 +204,20 @@ impl Token {
     }
 
     fn to_string(&self) -> String {
-        // formatting of the literal: Any probably needs to be changed to something useful
+        // formatting of the literal
         format!("{:?} {} {:?}", self.kind, self.lexeme, self.literal)
     }
 }
 
-struct Lox {
-    had_error: bool,
-}
+struct Lox {}
 
 impl Lox {
     fn new() -> Self {
-        Self { had_error: false }
+        Self {}
     }
 
     fn run(&mut self, code: &str) {
-        let scanner = Scanner::new(code);
+        let mut scanner = Scanner::new(code);
         let tokens = scanner.scan();
 
         for token in tokens {
@@ -131,7 +229,7 @@ impl Lox {
         let code = std::fs::read_to_string(filename).context("Could not read code from file")?;
         self.run(&code);
 
-        if self.had_error {
+        if unsafe { HAD_ERROR } {
             std::process::exit(65);
         }
 
@@ -154,8 +252,13 @@ impl Lox {
                 break;
             }
 
+            if line == "\n" {
+                line.clear();
+                continue;
+            }
+
             self.run(&line);
-            self.had_error = false;
+            unsafe { HAD_ERROR = false };
 
             line.clear();
         }
@@ -163,9 +266,11 @@ impl Lox {
         Ok(())
     }
 
-    fn report(&mut self, line: usize, loc: &str, msg: &str) {
-        println!("[line {}] Error{}: {}", line, loc, msg);
-        self.had_error = true;
+    fn report(line: usize, loc: &str, msg: &str) {
+        println!("[line {line}] Error{loc}: {msg}");
+        unsafe {
+            HAD_ERROR = true;
+        }
     }
 }
 
