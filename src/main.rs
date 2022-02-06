@@ -81,7 +81,7 @@ impl<'source> Scanner<'source> {
     fn scan<'scanner>(&'scanner mut self) -> &'scanner [Token] {
         let mut char_iter = self.source.chars().peekable();
 
-        use TokenKind::*;
+        use TokenKind as TK;
 
         while let Some(c) = char_iter.next() {
             self.lexeme.push(c);
@@ -89,50 +89,50 @@ impl<'source> Scanner<'source> {
             let p = char_iter.peek();
 
             match c {
-                '(' => self.add_token(LeftParen),
-                ')' => self.add_token(RightParen),
-                '{' => self.add_token(LeftBrace),
-                '}' => self.add_token(RightBrace),
-                ',' => self.add_token(Comma),
-                '.' => self.add_token(Dot),
-                '-' => self.add_token(Minus),
-                '+' => self.add_token(Plus),
-                ';' => self.add_token(Semicolon),
-                '*' => self.add_token(Star),
+                '(' => self.add_token(TK::LeftParen),
+                ')' => self.add_token(TK::RightParen),
+                '{' => self.add_token(TK::LeftBrace),
+                '}' => self.add_token(TK::RightBrace),
+                ',' => self.add_token(TK::Comma),
+                '.' => self.add_token(TK::Dot),
+                '-' => self.add_token(TK::Minus),
+                '+' => self.add_token(TK::Plus),
+                ';' => self.add_token(TK::Semicolon),
+                '*' => self.add_token(TK::Star),
                 '!' => {
                     if let Some(&c_next @ '=') = p {
                         self.lexeme.push(c_next);
-                        self.add_token(BangEqual);
+                        self.add_token(TK::BangEqual);
                         char_iter.next();
                     } else {
-                        self.add_token(Bang)
+                        self.add_token(TK::Bang)
                     }
                 }
                 '=' => {
                     if let Some(&c_next @ '=') = p {
                         self.lexeme.push(c_next);
-                        self.add_token(EqualEqual);
+                        self.add_token(TK::EqualEqual);
                         char_iter.next();
                     } else {
-                        self.add_token(Equal)
+                        self.add_token(TK::Equal)
                     }
                 }
                 '<' => {
                     if let Some(&c_next @ '=') = p {
                         self.lexeme.push(c_next);
-                        self.add_token(LessEqual);
+                        self.add_token(TK::LessEqual);
                         char_iter.next();
                     } else {
-                        self.add_token(Less)
+                        self.add_token(TK::Less)
                     }
                 }
                 '>' => {
                     if let Some(&c_next @ '=') = p {
                         self.lexeme.push(c_next);
-                        self.add_token(GreaterEqual);
+                        self.add_token(TK::GreaterEqual);
                         char_iter.next();
                     } else {
-                        self.add_token(Greater)
+                        self.add_token(TK::Greater)
                     }
                 }
                 '/' => {
@@ -155,7 +155,7 @@ impl<'source> Scanner<'source> {
                         // ignore it later?
                         self.lexeme.clear();
                     } else {
-                        self.add_token(Slash);
+                        self.add_token(TK::Slash);
                     }
                 }
                 ' ' | '\r' | '\t' => {}
@@ -167,15 +167,14 @@ impl<'source> Scanner<'source> {
             }
         }
 
-        self.tokens
-            .push(Token::new(TokenKind::Eof, "", None, self.line));
+        self.tokens.push(Token::new(TK::Eof, "", self.line));
 
         &self.tokens
     }
 
     fn add_token(&mut self, kind: TokenKind) {
         self.tokens
-            .push(Token::new(kind, &self.lexeme, None, self.line));
+            .push(Token::new(kind, &self.lexeme, self.line));
         self.lexeme.clear();
     }
 }
@@ -184,7 +183,6 @@ impl<'source> Scanner<'source> {
 struct Token {
     kind: TokenKind,
     lexeme: String,
-    literal: Option<Literal>,
     line: usize,
 }
 
@@ -192,20 +190,18 @@ impl Token {
     fn new(
         kind: TokenKind,
         lexeme: impl AsRef<str>,
-        literal: Option<Literal>,
         line: usize,
     ) -> Self {
         Self {
             kind,
             lexeme: lexeme.as_ref().to_owned(),
-            literal,
             line,
         }
     }
 
     fn to_string(&self) -> String {
         // formatting of the literal
-        format!("{:?} {} {:?}", self.kind, self.lexeme, self.literal)
+        format!("{:?} {}", self.kind, self.lexeme)
     }
 }
 
