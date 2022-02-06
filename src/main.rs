@@ -143,7 +143,6 @@ impl<'source> Scanner<'source> {
 
                         // The rest of the line is a comment so now skip to the end
                         while let Some(c_comment) = char_iter.next() {
-                            dbg!(c_comment);
                             if let Some('\n') = char_iter.peek() {
                                 break;
                             }
@@ -275,7 +274,7 @@ impl Lox {
 
             input.read_line(&mut line)?;
 
-            if line.len() == 0 {
+            if line.is_empty() {
                 break;
             }
 
