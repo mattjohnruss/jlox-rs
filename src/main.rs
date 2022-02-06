@@ -78,7 +78,7 @@ impl<'source> Scanner<'source> {
         }
     }
 
-    fn scan<'scanner>(&'scanner mut self) -> &'scanner [Token] {
+    fn scan(&mut self) -> &[Token] {
         let mut char_iter = self.source.chars().peekable();
 
         use TokenKind as TK;
