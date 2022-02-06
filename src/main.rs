@@ -7,9 +7,9 @@ use std::io::prelude::*;
 
 #[derive(Debug)]
 enum Literal {
-    Identifier,
-    String,
-    Number,
+    Identifier(String),
+    String(String),
+    Number(f64),
 }
 
 #[derive(Debug)]
@@ -157,6 +157,37 @@ impl<'source> Scanner<'source> {
                     } else {
                         self.add_token(TK::Slash);
                     }
+                }
+                '"' => {
+                    let mut lit = String::new();
+
+                    while let Some(&c_next) = char_iter.peek() {
+                        match c_next {
+                            '"' => {
+                                self.lexeme.push(c_next);
+                                self.add_token(TK::Literal(Literal::String(lit)));
+                                break;
+                            }
+                            '\n' => {
+                                self.lexeme.push(c_next);
+                                lit.push(c_next);
+                                self.line += 1;
+                            }
+                            _ => {
+                                self.lexeme.push(c_next);
+                                lit.push(c_next);
+                            }
+                        }
+                        char_iter.next();
+
+                        // Check if we reached the end before finding a closing quote
+                        if char_iter.peek().is_none() {
+                            Lox::report(self.line, "", "Unterminated string.");
+                        }
+                    }
+
+                    // Skip over the closing quote
+                    char_iter.next();
                 }
                 ' ' | '\r' | '\t' => {}
                 '\n' => {
