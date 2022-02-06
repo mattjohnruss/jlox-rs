@@ -244,7 +244,9 @@ impl<'source> Scanner<'source> {
                     };
                     self.add_token(token_kind);
                 }
-                ' ' | '\r' | '\t' => {}
+                ' ' | '\r' | '\t' => {
+                    self.lexeme.clear();
+                }
                 '\n' => {
                     self.line += 1;
                     self.lexeme.clear();
