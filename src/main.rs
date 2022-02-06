@@ -213,7 +213,7 @@ impl<'source> Scanner<'source> {
                     let lit: f64 = self
                         .lexeme
                         .parse()
-                        .expect(&format!("error parsing number literal: {}", self.lexeme));
+                        .expect(&format!("error parsing number literal: `{}`", self.lexeme));
                     self.add_token(TK::Literal(Literal::Number(lit)));
                 }
                 ' ' | '\r' | '\t' => {}
