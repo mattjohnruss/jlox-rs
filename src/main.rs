@@ -188,6 +188,34 @@ impl<'source> Scanner<'source> {
                     // Skip over the closing quote
                     char_iter.next();
                 }
+                '0'..='9' => {
+                    // Digits in the integer part
+                    while let Some(&c_next @ '0'..='9') = char_iter.peek() {
+                        self.lexeme.push(c_next);
+                        char_iter.next();
+                    }
+
+                    if let Some(&c_next @ '.') = char_iter.peek() {
+                        // How can we disallow trailing '.' in number literals if we can't do 2
+                        // character lookahead? (`Peekable` only allows for 1 char lookahead via
+                        // peak() - we could switch to using `...chars().windows(3)` in the main
+                        // loop?). For now, assume the '.' is part of the number regardless of what
+                        // comes after it.
+                        self.lexeme.push(c_next);
+                        char_iter.next();
+
+                        // Digits in the fractional part
+                        while let Some(&c_next @ '0'..='9') = char_iter.peek() {
+                            self.lexeme.push(c_next);
+                            char_iter.next();
+                        }
+                    }
+                    let lit: f64 = self
+                        .lexeme
+                        .parse()
+                        .expect(&format!("error parsing number literal: {}", self.lexeme));
+                    self.add_token(TK::Literal(Literal::Number(lit)));
+                }
                 ' ' | '\r' | '\t' => {}
                 '\n' => {
                     self.line += 1;
@@ -203,8 +231,7 @@ impl<'source> Scanner<'source> {
     }
 
     fn add_token(&mut self, kind: TokenKind) {
-        self.tokens
-            .push(Token::new(kind, &self.lexeme, self.line));
+        self.tokens.push(Token::new(kind, &self.lexeme, self.line));
         self.lexeme.clear();
     }
 }
@@ -217,11 +244,7 @@ struct Token {
 }
 
 impl Token {
-    fn new(
-        kind: TokenKind,
-        lexeme: impl AsRef<str>,
-        line: usize,
-    ) -> Self {
+    fn new(kind: TokenKind, lexeme: impl AsRef<str>, line: usize) -> Self {
         Self {
             kind,
             lexeme: lexeme.as_ref().to_owned(),
