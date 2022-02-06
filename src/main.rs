@@ -7,7 +7,7 @@ use std::io::prelude::*;
 
 #[derive(Debug)]
 enum Literal {
-    Identifier(String),
+    Identifier,
     String(String),
     Number(f64),
 }
@@ -215,6 +215,34 @@ impl<'source> Scanner<'source> {
                         .parse()
                         .expect(&format!("error parsing number literal: `{}`", self.lexeme));
                     self.add_token(TK::Literal(Literal::Number(lit)));
+                }
+                'a'..='z' | 'A'..='Z' | '_' => {
+                    while let Some(&c_next @ ('a'..='z' | 'A'..='Z' | '0'..='9')) = char_iter.peek() {
+                        self.lexeme.push(c_next);
+                        char_iter.next();
+                    }
+
+                    let token_kind = match self.lexeme.as_str() {
+                        "and" => TK::And,
+                        "class" => TK::Class,
+                        "else" => TK::Else,
+                        "false" => TK::False,
+                        "fun" => TK::Fun,
+                        "for" => TK::For,
+                        "if" => TK::If,
+                        "nil" => TK::Nil,
+                        "or" => TK::Or,
+                        "print" => TK::Print,
+                        "return" => TK::Return,
+                        "super" => TK::Super,
+                        "this" => TK::This,
+                        "true" => TK::True,
+                        "var" => TK::Var,
+                        "while" => TK::While,
+                        "eof" => TK::Eof,
+                        _ => TK::Literal(Literal::Identifier),
+                    };
+                    self.add_token(token_kind);
                 }
                 ' ' | '\r' | '\t' => {}
                 '\n' => {
