@@ -54,6 +54,7 @@ enum TokenKind {
     True,
     Var,
     While,
+    // End-of-file
     Eof,
 }
 
